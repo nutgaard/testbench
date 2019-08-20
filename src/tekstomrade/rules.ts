@@ -1,4 +1,4 @@
-import {ASTNode, ReactElementDescription, Rule} from "./utils";
+import {ASTNode, getText, ReactElementDescription, Rule} from "./utils";
 import Lenke from "nav-frontend-lenker";
 
 export const ParagraphRule: Rule = {
@@ -63,8 +63,7 @@ export function createDynamicHighligtingRule(query: string[]): Rule {
         },
         react(node: ASTNode): ReactElementDescription {
             return {
-                type: 'strong',
-                props: { style: { backgroundColor: 'red' }}
+                type: 'em'
             }
         }
     };
@@ -73,6 +72,7 @@ export function createDynamicHighligtingRule(query: string[]): Rule {
 export const LinkRule: Rule = {
     name: 'Link',
     regex: /((?:[\w-]+:\/\/?|www(?:-\w+)?\.)[^\s()<>]+\w)/,
+    startsWithHttp: /^(https?):\/\/.*$/,
     parse(source: string) {
         return source
             .split(this.regex)
@@ -86,9 +86,13 @@ export const LinkRule: Rule = {
             })
     },
     react(node: ASTNode): ReactElementDescription {
+        const text = getText(node);
+        const href = this.startsWithHttp.test(text) ? text : `https://${text}`;
+
         return {
             type: Lenke,
-            props: { href: typeof node === 'string' ? node : node.content }
+            props: { href },
+            children: [href]
         };
     }
 };
