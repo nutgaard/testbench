@@ -13,49 +13,42 @@ export type Rule = {
 };
 
 export type AST = Array<ASTNode>;
-export type ASTNode = {
+export type ASTNode = string | {
     type: string;
-    content: string | Array<ASTNode>;
+    content: Array<ASTNode>;
 };
 
-function parseStringContent(rule: Rule, node: ASTNode & { content: string; }): AST {
-    const match = rule.regex.test(node.content);
-    if (rule.name === 'Paragraph') {
-        console.log('paragraph match', match, rule.regex, node.content, node.content.split('\n'));
-    }
+function parseStringContent(rule: Rule, node: string): AST {
+    const match = rule.regex.test(node);
     if (match) {
-        return [ { type: node.type, content: rule.parse(node.content) } ];
+        return rule.parse(node);
     } else {
         return [node];
     }
 }
 function parseNode(rule: Rule, node: ASTNode): AST {
-    const content = node.content;
-    if (typeof content === 'string') {
-        return parseStringContent(rule, node as any);
+    if (typeof node === 'string') {
+        return parseStringContent(rule, node);
     } else {
-        const newContent =content
+        const newContent =node.content
             .flatMap((node) => parseNode(rule, node));
         return [{ type: node.type, content: newContent }];
     }
 }
 
 function simplify(node: ASTNode): Array<ASTNode> {
-    if (node.type === 'Text' && Array.isArray(node.content)) {
-        return node.content.flatMap(simplify);
-    }
-    if (node.type === 'Text' && node.content.length === 0) {
-        return [];
-    }
-    if (Array.isArray(node.content)) {
+    if (typeof node === 'string') {
+        if (node.length === 0) {
+            return [];
+        }
+        return [node];
+    } else {
         return [ { type: node.type, content: node.content.flatMap(simplify)} ];
     }
-    return [node];
 }
 
 export function parse(rules: Rule[], value: string): AST {
-    console.log('lines', value.split('\n').length, rules.map((rule) => rule.name));
-    const initialAST: AST = [ { type: 'Text', content: value }];
+    const initialAST: AST = [ value ];
     return rules
         .reduce((ast, rule) => {
             return ast.flatMap((node) => parseNode(rule, node));
@@ -64,8 +57,8 @@ export function parse(rules: Rule[], value: string): AST {
 }
 
 function buildInternal(ruleMap: { [name: string]: Rule }, node: ASTNode, key: number): React.ReactNode {
-    if (node.type === 'Text') {
-        return node.content;
+    if (typeof node === 'string') {
+        return node;
     }
     const type = ruleMap[node.type];
     const element = type.react(node);

@@ -5,9 +5,8 @@ export const ParagraphRule: Rule = {
     name: 'Paragraph',
     regex: /\n/,
     parse(source: string) {
-        console.log('paragraph rule', source.split(this.regex).length);
         return source.split(this.regex)
-            .map((line) => ({ type: this.name, content: line }));
+            .map((line) => ({ type: this.name, content: [line] }));
     },
     react(): ReactElementDescription {
         return {
@@ -23,12 +22,12 @@ export const HighlightRule: Rule = {
     parse(source: string) {
         return source
             .split(this.regex)
-            .map((fragment) => {
+            .map((fragment: string) => {
                 const match = this.regex.exec(fragment);
                 if (match) {
-                    return { type: this.name, content: match[1].slice(1).slice(0, -1) };
+                    return { type: this.name, content: [match[1].slice(1).slice(0, -1)] };
                 } else {
-                    return { type: 'Text', content: fragment };
+                    return fragment;
                 }
             });
     },
@@ -39,22 +38,26 @@ export const HighlightRule: Rule = {
     }
 };
 
-export function createDynamicHighligtingRule(query: string): Rule {
+export function createDynamicHighligtingRule(query: string[]): Rule {
+    const queryPattern = query
+        .filter((word) => word.length > 0)
+        .join('|');
+    const regex = new RegExp(`(\\b\\S*(?:${queryPattern})\\S*\\b)`, 'i');
     return {
-        name: 'DynamicHighliht',
-        regex: new RegExp(`(\\b\\S*(?:${query})\\S*\\b)`, 'i'),
+        name: 'DynamicHighlight',
+        regex,
         parse(content: string) {
-            if (query === '') {
-                return [{ type: 'Text', content: content }];
+            if (queryPattern.length === 0) {
+                return [content];
             }
             return content
                 .split(this.regex)
                 .map((fragment) => {
                     const match = this.regex.exec(fragment);
                     if (match) {
-                        return { type: this.name, content: match[1] };
+                        return { type: this.name, content: [match[1]] };
                     } else {
-                        return { type: 'Text', content: fragment };
+                        return fragment;
                     }
                 });
         },
@@ -76,16 +79,16 @@ export const LinkRule: Rule = {
             .map((fragment) => {
                 const match = this.regex.exec(fragment);
                 if (match) {
-                    return { type: this.name, content: match[1] }
+                    return { type: this.name, content: [match[1]] }
                 } else {
-                    return { type: 'Text', content: fragment };
+                    return fragment;
                 }
             })
     },
     react(node: ASTNode): ReactElementDescription {
         return {
             type: Lenke,
-            props: { href: node.content }
+            props: { href: typeof node === 'string' ? node : node.content }
         };
     }
 };

@@ -21,8 +21,6 @@ class Tekstomrade extends React.Component<Props> {
 
         const ast = Utils.parse(this.props.rules!, this.props.children);
         const elements = Utils.build(this.props.rules!, ast);
-        console.log(ast);
-        console.log(elements);
 
         return (
             <div className={cls(className)}>
