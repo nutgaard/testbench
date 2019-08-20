@@ -24,7 +24,7 @@ function matchAll(value: string, regex: RegExp): RegExpExecArray[] {
     return out;
 }
 
-export function parseTekst(query: string) {
+export function parseTekst(query: string): { tags: string[], text: string } {
     const tags = matchAll(query, tagsRegex)
         .map(([ fullMatch, group ]) => group);
     const text = query.replace(tagsRegex, '');
@@ -37,16 +37,14 @@ type Props = Omit<NavFrontendInputProps, 'value' | 'name' | 'inputRef'> & {
     onChange?(event: React.ChangeEvent<HTMLInputElement>): void;
 };
 interface State {
-    raw: string;
-    tags: string[];
-    text: string;
     focusWithin: boolean;
 }
 
 function buildString(tags: string[], value: string) {
-    return [tags.map(tag => `#${tag}`).join(' '), value]
+    const separator = tags.length > 0 ? ' ' : '';
+    return [tags.map(tag => `#${tag}`).join(' '), separator, value]
         .filter((v) => v.length !== 0)
-        .join(' ');
+        .join('');
 }
 
 class TagInput extends React.Component<Props, State> {
@@ -56,14 +54,12 @@ class TagInput extends React.Component<Props, State> {
     constructor(props: Props) {
         super(props);
 
-        const defaultValue = props.value || '';
         this.state = {
-            focusWithin: false,
-            raw: defaultValue,
-            ...parseTekst(defaultValue)
+            focusWithin: false
         };
         this.ref = React.createRef();
         this.onChangeProxy = this.onChangeProxy.bind(this);
+        this.onKeyDownProxy = this.onKeyDownProxy.bind(this);
         this.onFocusProxy = this.onFocusProxy.bind(this);
         this.onBlurProxy = this.onBlurProxy.bind(this);
         this.createChangeEvent = this.createChangeEvent.bind(this);
@@ -71,18 +67,15 @@ class TagInput extends React.Component<Props, State> {
     }
 
     componentDidMount() {
-        this.onChangeProxy(this.createChangeEvent(this.state.text));
+        const { text } = parseTekst(this.props.value);
+        this.onChangeProxy(this.createChangeEvent(text));
     }
 
-    onChangeProxy(event: React.ChangeEvent<HTMLInputElement>) {
+    onChangeProxy(event: React.ChangeEvent<HTMLInputElement>, option?: { tags: string[] }) {
         const value = event.target.value;
-        const rawStr = buildString(this.state.tags, value);
+        const { tags } = option || parseTekst(this.props.value);
+        const rawStr = buildString(tags, value);
 
-        const state = {
-            raw: rawStr,
-            ...parseTekst(rawStr)
-        };
-        this.setState(state);
         const clonedTarget = {
             ...event.target,
             value: rawStr
@@ -93,6 +86,22 @@ class TagInput extends React.Component<Props, State> {
         };
         if (this.props.onChange) {
             this.props.onChange(clonedEvent);
+        }
+    }
+
+    onKeyDownProxy(e: React.KeyboardEvent<HTMLInputElement>) {
+        const { tags } = parseTekst(this.props.value);
+        const cursorAtStart = e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0;
+        const hasTags = tags.length > 0;
+        const wasBackspace = e.key === 'Backspace';
+
+        if (wasBackspace && hasTags && cursorAtStart) {
+            this.remove(tags.length - 1);
+            e.preventDefault();
+        }
+
+        if (this.props.onKeyDown) {
+            this.props.onKeyDown(e);
         }
     }
 
@@ -111,23 +120,22 @@ class TagInput extends React.Component<Props, State> {
     }
 
     createChangeEvent(value: string): ChangeEvent<HTMLInputElement> {
+        const target = {...(this.ref.current || {}), value};
         return {
-            target: {
-                ...(this.ref.current || {}),
-                value
-            }
+            target: target,
+            currentTarget: target
         } as unknown as ChangeEvent<HTMLInputElement>
     }
 
     remove(index: number) {
-        this.setState({
-            tags: this.state.tags.filter((_, is) => index !== is)
-        }, () => this.onChangeProxy(this.createChangeEvent(this.state.text)));
+        const { text, tags } = parseTekst(this.props.value);
+        this.onChangeProxy(this.createChangeEvent(text), { tags: tags.filter((_, i) => i !== index) });
     }
 
     render() {
         const { label, bredde = 'fullbredde', feil,  name, className, inputClassName, ...other } = this.props;
-        const tags = this.state.tags
+        const { tags, text } = parseTekst(this.props.value);
+        const tagElements = tags
             .map((tag, i) => {
                 return (
                     <button key={i} className="tag-input__tag" onClick={() => this.remove(i)} title="Remove tag">
@@ -142,18 +150,19 @@ class TagInput extends React.Component<Props, State> {
                 <label className="skjemaelement__label" htmlFor={this.inputId}>{label}</label>
                 <div className={inputClass(bredde, this.state.focusWithin, inputClassName, !!feil)}>
                     <div className="tag-input__tags">
-                        {tags}
+                        {tagElements}
                     </div>
                     <input
                         {...other}
                         onFocus={this.onFocusProxy}
                         onBlur={this.onBlurProxy}
                         onChange={this.onChangeProxy}
+                        onKeyDown={this.onKeyDownProxy}
                         type="text"
                         className="tag-input__input"
                         id={this.inputId}
                         name={name}
-                        value={this.state.text}
+                        value={text}
                         ref={this.ref}
                     />
                 </div>

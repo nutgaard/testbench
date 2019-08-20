@@ -5,8 +5,7 @@ import useFieldState from "./use-fieldstate";
 import Tekstomrade, {HighlightRule, LinkRule, ParagraphRule, createDynamicHighligtingRule} from "./tekstomrade/tekstomrade";
 import NavFrontendTekstomrade from 'nav-frontend-tekstomrade';
 
-const content = 'Start *highlight* slutt: http://www.google.com';
-const content2 = `
+const content = `
 Dette er en paragraf.
 Dette er en annen.
 Og her har vi en lenke; www.nav.no
@@ -16,18 +15,19 @@ Kanskje til og med en *lenke* som skal highlightes: *www.nav.no*
 
 function Application() {
     const state = useFieldState('');
-    const dynamicRule = createDynamicHighligtingRule(state.input.value);
+    const value = parseTekst(state.input.value);
+    const dynamicRule = createDynamicHighligtingRule(value.text.split(' '));
     return (
         <div className="application">
             <h1>Hei</h1>
             <TagInput label="Label" {...state.input} name="test"/>
             <hr/>
-            <pre>{JSON.stringify(parseTekst(state.input.value), null, 2)}</pre>
+            <pre>{JSON.stringify(value, null, 2)}</pre>
             <hr />
             <hr />
-            <NavFrontendTekstomrade>{content2}</NavFrontendTekstomrade>
+            <NavFrontendTekstomrade>{content}</NavFrontendTekstomrade>
             <hr />
-            <Tekstomrade rules={[ParagraphRule, dynamicRule, LinkRule]}>{content2}</Tekstomrade>
+            <Tekstomrade rules={[ParagraphRule, HighlightRule, dynamicRule, LinkRule]}>{content}</Tekstomrade>
         </div>
     );
 }
